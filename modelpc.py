@@ -17,13 +17,15 @@ class pc_conv_first(nn.Module):
     def forward(self, KNN_xyz):
         output = KNN_xyz
         #[newpointnum*KNN_num,3]
+        
         output = self.linear_1(output)
         output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
         output = self.linear_2(output)
         #[newpointnum*KNN_num,ef_dim]
-        output = output.view(-1,KNN_num,self.ef_dim)
+        
+        output = output.view(-1,KNN_num,self.ef_dim) # Returns a new tensor with the same data as the self tensor but of a different shape.
         #[newpointnum,KNN_num,ef_dim]
-        output = torch.max(output,1)[0]
+        output = torch.max(output,1)[0] # 计算第1维的最大值，并取其中的values属性，[1] 是其indices属性， [0] 是其values属性;
         #[newpointnum,ef_dim]
         return output
 
@@ -32,7 +34,7 @@ class pc_conv(nn.Module):
     def __init__(self, ef_dim):
         super(pc_conv, self).__init__()
         self.ef_dim = ef_dim
-        self.linear_1 = nn.Linear(self.ef_dim+3, self.ef_dim)
+        self.linear_1 = nn.Linear(self.ef_dim + 3, self.ef_dim)
         self.linear_2 = nn.Linear(self.ef_dim, self.ef_dim)
 
     def forward(self, input, KNN_idx, KNN_xyz):
@@ -40,16 +42,20 @@ class pc_conv(nn.Module):
         #[pointnum,ef_dim]
         output = output[KNN_idx]
         #[newpointnum*KNN_num,ef_dim]
-        output = torch.cat([output,KNN_xyz],1)
+        output = torch.cat([output, KNN_xyz], 1)
         #[newpointnum*KNN_num,ef_dim+3]
+        
         output = self.linear_1(output)
+        #[newpointnum*KNN_num,ef_dim]
         output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
+        #[newpointnum*KNN_num,ef_dim]
         output = self.linear_2(output)
         #[newpointnum*KNN_num,ef_dim]
-        output = output.view(-1,KNN_num,self.ef_dim)
-        #[newpointnum,KNN_num,ef_dim]
-        output = torch.max(output,1)[0]
-        #[newpointnum,ef_dim]
+        
+        output = output.view(-1, KNN_num, self.ef_dim)
+        #[newpointnum, KNN_num, ef_dim]
+        output = torch.max(output, 1)[0] # 相当于pointnet++里面的pooling操作
+        #[newpointnum, ef_dim]
         return output
 
 
@@ -61,10 +67,10 @@ class pc_resnet_block(nn.Module):
         self.linear_2 = nn.Linear(self.ef_dim, self.ef_dim)
 
     def forward(self, input):
-        output = self.linear_1(input)
-        output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
-        output = self.linear_2(output)
-        output = output+input
+        output = self.linear_1(input) # 输出 [newpointnum, ef_dim]
+        output = F.leaky_relu(output, negative_slope=0.01, inplace=True) # negative_slope 控制“负斜率”的角度值，默认0.01
+        output = self.linear_2(output) # 输出 [newpointnum, ef_dim]
+        output = output+input # 输出 [newpointnum, ef_dim]
         output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
         return output
 
@@ -89,14 +95,16 @@ class resnet_block_rec3(nn.Module):
     def __init__(self, ef_dim):
         super(resnet_block_rec3, self).__init__()
         self.ef_dim = ef_dim
+        # in_channels, out_channels, kernel_size
         self.pc_conv_1 = nn.Conv3d(self.ef_dim, self.ef_dim, 3, stride=1, padding=1, bias=True)
         self.pc_conv_2 = nn.Conv3d(self.ef_dim, self.ef_dim, 1, stride=1, padding=0, bias=True)
 
-    def forward(self, input):
+    def forward(self, input): # [1, 128, Sx, Sy, Sz] 整个接口的输入和输出维度相同
         output = self.pc_conv_1(input)
         output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
+        # 输出 [1, 128, Sx, Sy, Sz]
         output = self.pc_conv_2(output)
-        output = output+input
+        output = output+input # 将 input 和 output 直接加在一块
         output = F.leaky_relu(output, negative_slope=0.01, inplace=True)
         return output
 
@@ -264,7 +272,7 @@ class local_pointnet_larger(nn.Module):
         if self.out_float:
             self.linear_float = nn.Linear(self.ef_dim, 3)
 
-    def forward(self, pc_KNN_idx,pc_KNN_xyz, voxel_xyz_int,voxel_KNN_idx,voxel_KNN_xyz):
+    def forward(self, pc_KNN_idx, pc_KNN_xyz, voxel_xyz_int, voxel_KNN_idx, voxel_KNN_xyz):
         out = pc_KNN_xyz
         
         out = self.pc_conv_0(out)
@@ -296,13 +304,13 @@ class local_pointnet_larger(nn.Module):
 
         out = self.pc_res_7(out)
 
-        voxel_xyz_int_max = torch.max(voxel_xyz_int,0)[0]
-        voxel_xyz_int_min = torch.min(voxel_xyz_int,0)[0]
-        voxel_xyz_int_size = voxel_xyz_int_max-voxel_xyz_int_min+1
-        voxel_xyz_int = voxel_xyz_int-voxel_xyz_int_min.view(1,-1)
-        tmp_grid = torch.zeros(voxel_xyz_int_size[0],voxel_xyz_int_size[1],voxel_xyz_int_size[2],self.ef_dim, device=out.device)
-        tmp_grid[voxel_xyz_int[:,0],voxel_xyz_int[:,1],voxel_xyz_int[:,2]] = out
-        tmp_grid = tmp_grid.permute(3,0,1,2).unsqueeze(0)
+        voxel_xyz_int_max = torch.max(voxel_xyz_int, 0)[0] # 找 voxel points 中的三轴坐标各自的最大值
+        voxel_xyz_int_min = torch.min(voxel_xyz_int,0)[0] # 找 voxel points 中的三轴坐标各自的最小值
+        voxel_xyz_int_size = voxel_xyz_int_max - voxel_xyz_int_min+1 # voxel points 中的三轴坐标各自的size
+        voxel_xyz_int = voxel_xyz_int - voxel_xyz_int_min.view(1,-1) # 将整体包围框的最小坐标挪到[0,0,0]位置
+        tmp_grid = torch.zeros(voxel_xyz_int_size[0], voxel_xyz_int_size[1], voxel_xyz_int_size[2], self.ef_dim, device=out.device)
+        tmp_grid[voxel_xyz_int[:,0],voxel_xyz_int[:,1],voxel_xyz_int[:,2]] = out # 将前面网络提取到的特征放置到栅格中去
+        tmp_grid = tmp_grid.permute(3,0,1,2).unsqueeze(0) # 先把128特征维度放在最前面，然后再加一个维度，再放在最前面
         out = tmp_grid
 
         out = self.res_1(out)
@@ -314,8 +322,8 @@ class local_pointnet_larger(nn.Module):
         out = self.res_7(out)
         out = self.res_8(out)
         
-        out = out.squeeze(0).permute(1,2,3,0)
-        out = out[voxel_xyz_int[:,0],voxel_xyz_int[:,1],voxel_xyz_int[:,2]]
+        out = out.squeeze(0).permute(1,2,3,0) # 把最前面的第0维度取消掉，然后把128的特征维度放在最后面，即恢复原来的布局
+        out = out[voxel_xyz_int[:,0], voxel_xyz_int[:,1], voxel_xyz_int[:,2]]
 
         out = self.linear_1(out)
         out = F.leaky_relu(out, negative_slope=0.01, inplace=True)
@@ -336,7 +344,7 @@ class local_pointnet_larger(nn.Module):
 
 
 
-
+# 后处理，用于弥补小洞
 def postprocessing(pred_output_bool):
     for t in range(2):
 
