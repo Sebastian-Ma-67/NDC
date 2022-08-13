@@ -278,8 +278,6 @@ class single_shape_pointcloud(torch.utils.data.Dataset):
         return pc_KNN_idx,pc_KNN_xyz, voxel_xyz_int,voxel_KNN_idx,voxel_KNN_xyz
 
 
-
-
 #only for testing 并且我们在这里使用的数据集是 Map-style datasets 类型的，
 class scene_crop_pointcloud(torch.utils.data.Dataset):
     def __init__(self, data_dir, input_point_num, output_grid_size, KNN_num, pooling_radius, block_num_per_dim, block_padding):
@@ -332,7 +330,7 @@ class scene_crop_pointcloud(torch.utils.data.Dataset):
                         & (self.full_scene[:,2] > idx_z*self.output_grid_size-self.block_padding) \
                         & (self.full_scene[:,2] < (idx_z+1)*self.output_grid_size+self.block_padding)
                         
-        if np.sum(gt_input_mask_) < 50: # 原来是100
+        if np.sum(gt_input_mask_) < 100: # 原来是100 就是用来处理空间中的一些空壳子
             return np.zeros([1],np.float32),np.zeros([1],np.float32),np.zeros([1],np.float32),np.zeros([1],np.float32),np.zeros([1],np.float32)
         
         base_array = np.array([[idx_x*self.output_grid_size-self.block_padding, 
@@ -368,7 +366,7 @@ class scene_crop_pointcloud(torch.utils.data.Dataset):
                 for j in range(3):
                     for k in range(3):
                         tmp_grid[i:grid_size-1+i,j:grid_size-1+j,k:grid_size-1+k] \
-                            = tmp_mask | tmp_grid[i:grid_size-1+i,j:grid_size-1+j,k:grid_size-1+k]
+                            = tmp_mask | tmp_grid[i:grid_size-1+i, j:grid_size-1+j,k:grid_size-1+k]
         # Since obtaining the features for all cell centers in a 3D grid is very expensive (O(N^3)),
         # we only compute features for the cells that are close to the input point cloud, i.e., the cells that are within 3 units (manhattan distance)
         # to the closest point in the point cloud
