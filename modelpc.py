@@ -2,6 +2,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from src.res_layers import ResnetBlockFC
+from src.common import normalize_3d_coordinate
+
 
 #number of local pointnet input points, gathered via K nearest neighbors
 KNN_num = 8
@@ -343,6 +346,78 @@ class local_pointnet_larger(nn.Module):
             return out_float
 
 
+class local_pointnet_larger_convonet(nn.Module):
+
+    def __init__(self,
+                 model,
+                 device=None):
+        super(local_pointnet_larger, self).__init__()
+        
+        n_blocks = 5
+        hidden_size = 256
+                
+        self.c_dim = 128
+        self.padding = 0.1
+        self.model = model.to(device)
+        self.device = device
+        
+        self.n_blocks = n_blocks
+
+        self.fc_p = nn.Linear(4, hidden_size)   
+        self.blocks = nn.ModuleList([
+            ResnetBlockFC(hidden_size) for i in range(self.n_blocks)
+        ])
+        
+        # self.encoder = 
+     
+
+    def forward(self, pc_KNN_idx, pc_KNN_xyz, voxel_xyz_int, voxel_KNN_idx, voxel_KNN_xyz):
+        
+        #  c = self.model.encode_inputs(inputs) # （1）先进行encode
+        
+        
+        #  occ_hat = self.model.decode(pi, c, **kwargs).logits
+        
+        
+        # decoder
+
+        # c = self.sample_grid_feature(p, c_plane['grid'])
+        
+        p = 0
+        
+        p_nor = normalize_3d_coordinate(p.clone(), padding=self.padding) # normalize to the range of (0, 1)
+        p_nor = p_nor[:, :, None, None].float()
+        vgrid = 2.0 * p_nor - 1.0 # normalize to (-1, 1)
+        # acutally trilinear interpolation if mode = 'bilinear'
+        # c = F.grid_sample(c, vgrid, padding_mode='border', align_corners=True, mode=self.sample_mode).squeeze(-1).squeeze(-1)
+        p_nor = normalize_3d_coordinate(p.clone(), padding=self.padding)
+        index = coordinate2index(p_nor, self.reso_grid, coord_type='3d')
+        # scatter grid features from points
+        fea_grid = c.new_zeros(p.size(0), self.c_dim, self.reso_grid**3)
+        c = c.permute(0, 2, 1)
+        fea_grid = scatter_mean(c, index, out=fea_grid) # B x C x reso^3
+        fea_grid = fea_grid.reshape(p.size(0), self.c_dim, self.reso_grid, self.reso_grid, self.reso_grid) # sparce matrix (B x 512 x reso x reso)
+
+        if self.unet3d is not None:
+            fea_grid = self.unet3d(fea_grid)
+
+        return fea_grid
+
+        c = c.transpose(1, 2) # [1, 35937, 3]
+
+        p = p.float() # [1, 35937, 3]
+        net = self.fc_p(p) # [1, 35937, 32] / 3->32
+
+        for i in range(self.n_blocks):
+            if self.c_dim != 0:
+                net = net + self.fc_c[i](c) # [1, 35937, 32]
+
+            net = self.blocks[i](net)
+
+        out = self.fc_out(self.actvn(net)) # [1, 35937, 1]
+        out = out.squeeze(-1)  # [1, 35937]
+        
+       
 
 
 
