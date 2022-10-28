@@ -4,7 +4,7 @@ from multiprocessing import Process, Queue
 import queue
 import time
 
-
+# performs scaling and translation augmentation
 
 def load_obj(dire):
     fin = open(dire,'r')
@@ -52,24 +52,30 @@ def augment_objs(q, name_list):
         idx = name_list[nid][1]
         in_name = name_list[nid][2]
 
-
-        print(pid,idx,in_name)
-        v,t = load_obj(in_name+"/model.obj")
-        
-        for s in [10,9,8,7,6,5]:
-            for i in [0,1]:
-                for j in [0,1]:
-                    for k in [0,1]:
-                        newdir = in_name+"_"+str(s)+"_"+str(i)+"_"+str(j)+"_"+str(k)
-                        os.makedirs(newdir)
-                        vvv = v*(s/10.0)
-                        if i==1:
-                            vvv[:,0] = vvv[:,0]+0.5/64
-                        if j==1:
-                            vvv[:,1] = vvv[:,1]+0.5/64
-                        if k==1:
-                            vvv[:,2] = vvv[:,2]+0.5/64
-                        write_obj(newdir+"/model.obj",vvv,t)
+        file_name = in_name+"/model.obj"
+        if os.path.exists(file_name):
+            # print(pid,idx,file_name)
+            v,t = load_obj(file_name)
+            
+            for s in [10,9,8,7,6,5]:
+                for i in [0,1]:
+                    for j in [0,1]:
+                        for k in [0,1]:
+                            newdir = in_name+"_"+str(s)+"_"+str(i)+"_"+str(j)+"_"+str(k)
+                            new_file = newdir+"/model.obj"
+                            if not os.path.exists(new_file):
+                                os.makedirs(newdir)
+                                vvv = v*(s/10.0)
+                                if i==1:
+                                    vvv[:,0] = vvv[:,0]+0.5/64
+                                if j==1:
+                                    vvv[:,1] = vvv[:,1]+0.5/64
+                                if k==1:
+                                    vvv[:,2] = vvv[:,2]+0.5/64
+                                write_obj(new_file,vvv,t)
+                                print(pid,idx,new_file + " is processed")
+        else:
+            print(pid,idx,file_name + " is not exist")
 
         q.put([1,pid,idx])
 
@@ -78,7 +84,7 @@ def augment_objs(q, name_list):
 
 if __name__ == '__main__':
 
-    target_dir = "../objs/"
+    target_dir = "./objs/"
     if not os.path.exists(target_dir):
         print("ERROR: this dir does not exist: "+target_dir)
         exit()
@@ -98,7 +104,7 @@ if __name__ == '__main__':
     obj_names_len = len(obj_names)
 
     #prepare list of names
-    even_distribution = [16]
+    even_distribution = [32]
     this_machine_id = 0
     num_of_process = 0
     P_start = 0
@@ -152,9 +158,5 @@ if __name__ == '__main__':
         if allExited and q.empty():
             break
 
-
     print("finished")
     print("returned", counter,"/",obj_names_len)
-    
-
-
