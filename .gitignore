@@ -1,0 +1,10 @@
+.idea
+examples
+samples
+build
+__pycache__
+*.png
+*.net
+*.npy
+*.npz
+*.so
