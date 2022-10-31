@@ -552,15 +552,18 @@ elif quick_testing:
                             pred_output_bool_numpy = pred_output_bool_numpy*gt_output_bool_mask_numpy + gt_input_numpy*(1-gt_output_bool_mask_numpy)
                         if FLAGS.input_type == "sdf":
                             pred_output_bool_numpy = np.expand_dims((gt_input_numpy<0).astype(np.int32), axis=3)
-
-                else:
-                    pred_output_bool_numpy = np.transpose(gt_output_bool_[0].detach().cpu().numpy(), [1,2,3,0])
-                    pred_output_bool_numpy = (pred_output_bool_numpy>0.5).astype(np.int32)
+                
+                # 下面的代码可能是在代码调试时用的
+                # else:
+                    # pred_output_bool_numpy = np.transpose(gt_output_bool_[0].detach().cpu().numpy(), [1,2,3,0])
+                    # pred_output_bool_numpy = (pred_output_bool_numpy>0.5).astype(np.int32)
 
                 if net_float:
                     pred_output_float_numpy = np.transpose(pred_output_float[0].detach().cpu().numpy(), [1,2,3,0])
-                else:
-                    pred_output_float_numpy = np.transpose(gt_output_float_[0].detach().cpu().numpy(), [1,2,3,0])
+                
+                # 下面的代码可能是在代码调试时用的                
+                # else:
+                    # pred_output_float_numpy = np.transpose(gt_output_float_[0].detach().cpu().numpy(), [1,2,3,0])
 
 
     elif FLAGS.input_type == "pointcloud":
@@ -584,10 +587,11 @@ elif quick_testing:
                 if net_float:
                     pred_output_float = network_float(pc_KNN_idx,pc_KNN_xyz, voxel_xyz_int,voxel_KNN_idx,voxel_KNN_xyz)
 
-                if not net_bool:
-                    pred_output_bool = gt_output_bool_[0].to(device)
-                if not net_float:
-                    pred_output_float = gt_output_float_[0].to(device)
+                # 下面的代码可能是在代码调试时用的                
+                # if not net_bool:
+                #     pred_output_bool = gt_output_bool_[0].to(device)
+                # if not net_float:
+                #     pred_output_float = gt_output_float_[0].to(device)
 
                 pred_output_bool_grid = torch.zeros([FLAGS.grid_size+1,FLAGS.grid_size+1,FLAGS.grid_size+1,3], dtype=torch.int32, device=device)
                 pred_output_float_grid = torch.full([FLAGS.grid_size+1,FLAGS.grid_size+1,FLAGS.grid_size+1,3], 0.5, device=device)
@@ -619,10 +623,12 @@ elif quick_testing:
 
             if pc_KNN_idx_.size()[1]==1: continue
 
-            idx_x = i//(full_scene_size[1]*full_scene_size[2])
-            idx_yz = i%(full_scene_size[1]*full_scene_size[2])
-            idx_y = idx_yz//full_scene_size[2]
-            idx_z = idx_yz%full_scene_size[2]
+            #  由 i 得到 idx_x, idx_y, idx_z, 详见 https://www.notion.so/qixuema/f09e3cf7234c41de9da8566133896ca3?v=03843a9d747649a7839c92c91dfabf7f&p=5fef3d80938e4b32b017f53c34a84da0&pm=s
+            # 从下往上（沿z轴），从左往右（沿y轴），从后往前（沿x轴），依次对所有的 block 进行重建
+            idx_x = i // (full_scene_size[1]*full_scene_size[2])
+            idx_yz = i % (full_scene_size[1]*full_scene_size[2])
+            idx_y = idx_yz // full_scene_size[2]
+            idx_z = idx_yz % full_scene_size[2]
 
             pc_KNN_idx = pc_KNN_idx_[0].to(device)
             pc_KNN_xyz = pc_KNN_xyz_[0].to(device)
@@ -636,10 +642,11 @@ elif quick_testing:
                 if net_float:
                     pred_output_float = network_float(pc_KNN_idx,pc_KNN_xyz, voxel_xyz_int,voxel_KNN_idx,voxel_KNN_xyz)
 
-                if not net_bool:
-                    pred_output_bool = gt_output_bool_[0].to(device)
-                if not net_float:
-                    pred_output_float = gt_output_float_[0].to(device)
+                # 下面的代码可能是在代码调试时用的                                
+                # if not net_bool:
+                #     pred_output_bool = gt_output_bool_[0].to(device)
+                # if not net_float:
+                #     pred_output_float = gt_output_float_[0].to(device)
 
                 pred_output_bool_grid = torch.zeros([FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,3], dtype=torch.int32, device=device)
                 pred_output_float_grid = torch.full([FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,3], 0.5, device=device)
@@ -650,8 +657,18 @@ elif quick_testing:
                 if FLAGS.postprocessing:
                     pred_output_bool_grid = modelpc.postprocessing(pred_output_bool_grid)
 
-                pred_output_bool_numpy[idx_x*FLAGS.grid_size:(idx_x+1)*FLAGS.grid_size, idx_y*FLAGS.grid_size:(idx_y+1)*FLAGS.grid_size, idx_z*FLAGS.grid_size:(idx_z+1)*FLAGS.grid_size] = pred_output_bool_grid[FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size,FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size,FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size].detach().cpu().numpy()
-                pred_output_float_numpy[idx_x*FLAGS.grid_size:(idx_x+1)*FLAGS.grid_size, idx_y*FLAGS.grid_size:(idx_y+1)*FLAGS.grid_size, idx_z*FLAGS.grid_size:(idx_z+1)*FLAGS.grid_size] = pred_output_float_grid[FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size,FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size,FLAGS.block_padding:FLAGS.block_padding+FLAGS.grid_size].detach().cpu().numpy()
+                pred_output_bool_numpy[ idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
+                                        idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
+                                        idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size] \
+                    = pred_output_bool_grid[FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
+                                            FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
+                                            FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size].detach().cpu().numpy()
+                pred_output_float_numpy[idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
+                                        idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
+                                        idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size] \
+                    = pred_output_float_grid[FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
+                                             FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
+                                             FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size].detach().cpu().numpy()
 
 
     pred_output_float_numpy = np.clip(pred_output_float_numpy,0,1)

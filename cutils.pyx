@@ -226,7 +226,7 @@ def dual_contouring_undc(int[:,:,:,::1] int_grid, float[:,:,:,::1] float_grid):
     cdef float[:,::1] all_vertices = all_vertices_ # num_v x 3
     cdef int[:,::1] all_triangles = all_triangles_ # num_f x 3
     cdef float[:,::1] all_vertices_old = all_vertices_
-    cdef int[:,::1] all_triangles_old = all_triangles_
+    cdef int[:,::1] all_triangles_old = all_triangles_ # 这里我猜测应该是浅拷贝，即 all_triangles 发生变化之后，all_triangles_old 也会发生变化
 
     cdef int dimx,dimy,dimz
     # 这里的 -1 操作暂时还不太清楚，可能与构建栅格有关系
@@ -282,16 +282,28 @@ def dual_contouring_undc(int[:,:,:,::1] int_grid, float[:,:,:,::1] float_grid):
                         all_vertices_max = all_vertices_max * 2
                         all_vertices_ = np.zeros([all_vertices_max,3], np.float32)
                         all_vertices = all_vertices_
+
+                        # 接下来，先把 old_vertices 拷贝进去
                         for ii in range(all_vertices_len):
                             all_vertices[ii,0] = all_vertices_old[ii,0]
                             all_vertices[ii,1] = all_vertices_old[ii,1]
                             all_vertices[ii,2] = all_vertices_old[ii,2]
+                        
+                        # 然后更新一下 old_vertices
                         all_vertices_old = all_vertices_
                     
                     #add to all_vertices, float_grid[i,j,k] 存储着 [i,j,k] "对应的 voxel" 里面的 "vertex 相对于 local origin 的偏差[dx, dy, dz]"
-                    all_vertices[all_vertices_len,0] = i + float_grid[i,j,k,0]
-                    all_vertices[all_vertices_len,1] = j + float_grid[i,j,k,1]
-                    all_vertices[all_vertices_len,2] = k + float_grid[i,j,k,2]
+                    i_flag = 1
+                    
+                    if i_flag:
+                        all_vertices[all_vertices_len,0] = i + float_grid[i,j,k,0]
+                        all_vertices[all_vertices_len,1] = j + float_grid[i,j,k,1]
+                        all_vertices[all_vertices_len,2] = k + float_grid[i,j,k,2]
+                    else:
+                        # 否则调换一下 k 和 j 的顺序
+                        all_vertices[all_vertices_len,0] = i + float_grid[i,j,k,0]
+                        all_vertices[all_vertices_len,1] = k + float_grid[i,j,k,2]
+                        all_vertices[all_vertices_len,2] = j + float_grid[i,j,k,1]
                     all_vertices_len += 1
 
 
@@ -306,7 +318,7 @@ def dual_contouring_undc(int[:,:,:,::1] int_grid, float[:,:,:,::1] float_grid):
 
                     #grow all_triangles
                     if all_triangles_len + 2 >= all_triangles_max:
-                        all_triangles_max = all_triangles_max*2
+                        all_triangles_max = all_triangles_max * 2
                         all_triangles_ = np.zeros([all_triangles_max,3], np.int32)
                         all_triangles = all_triangles_
                         for ii in range(all_triangles_len):
