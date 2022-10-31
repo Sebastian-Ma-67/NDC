@@ -59,7 +59,7 @@ def get_gt_from_intersectionpn(q, name_list):
         start_time = time.time()
 
         #run exe to get intersection
-        command = "./IntersectionXYZpn "+in_obj_name+" 64 0"
+        command = "./data_preprocessing/get_groundtruth_UNDC_augmented/IntersectionXYZpn "+in_obj_name+" 64 0"
         os.system(command)
 
 
@@ -183,10 +183,12 @@ def get_gt_from_intersectionpn(q, name_list):
         hdf5_file.create_dataset("pointcloud", [point_sample_num,3], np.float32, compression=9)
         hdf5_file.create_dataset(str(grid_size)+"_int", [grid_size_1,grid_size_1,grid_size_1,num_of_int_params], np.uint8, compression=9)
         hdf5_file.create_dataset(str(grid_size)+"_float", [grid_size_1,grid_size_1,grid_size_1,num_of_float_params], np.float32, compression=9)
+        
         hdf5_file["pointcloud"][:] = gt_points
         hdf5_file[str(grid_size)+"_int"][:] = LOD_gt_tmp_int
         hdf5_file[str(grid_size)+"_float"][:] = LOD_gt_tmp_float
         hdf5_file.close()
+        print(out_hdf5_name, " is processed")
 
 
         #delete intersection to save space
@@ -199,12 +201,12 @@ def get_gt_from_intersectionpn(q, name_list):
 
 if __name__ == '__main__':
 
-    target_dir = "../objs/"
+    target_dir = "./objs/"
     if not os.path.exists(target_dir):
         print("ERROR: this dir does not exist: "+target_dir)
         exit()
 
-    write_dir = "./gt_UNDCa/"
+    write_dir = "./groundtruth/gt_UNDCa/"
     if not os.path.exists(write_dir):
         os.makedirs(write_dir)
 
@@ -221,7 +223,7 @@ if __name__ == '__main__':
 
 
     #prepare list of names
-    even_distribution = [16]
+    even_distribution = [64]
     this_machine_id = 0
     num_of_process = 0
     P_start = 0
@@ -243,7 +245,6 @@ if __name__ == '__main__':
         out_name = write_dir + obj_names[idx]
 
         list_of_list_of_names[process_id].append([process_id, idx, in_name, out_name])
-
     
     #map processes
     q = Queue()

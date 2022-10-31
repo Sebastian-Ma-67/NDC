@@ -1,0 +1,37 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "--train_bool",
+                "--input_type",
+                "noisypc",
+                "--method",
+                "undc",
+                "--epoch",
+                "20",
+                "--lr_half_life",
+                "5",
+                "--data_dir",
+                "./groundtruth/gt_UNDCa",
+                "--checkpoint_save_frequency",
+                "1",
+                "--point_num",
+                "16384",
+                "--grid_size",
+                "64",
+                "--gpu",
+                "1"
+            ],
+            "justMyCode": true
+        }
+    ]
+}

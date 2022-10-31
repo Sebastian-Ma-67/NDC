@@ -74,6 +74,9 @@ def augment_objs(q, name_list):
                                     vvv[:,2] = vvv[:,2]+0.5/64
                                 write_obj(new_file,vvv,t)
                                 print(pid,idx,new_file + " is processed")
+                            else:
+                                print(pid,idx,new_file + " is exist")
+                                
         else:
             print(pid,idx,file_name + " is not exist")
 
@@ -94,17 +97,19 @@ if __name__ == '__main__':
     fin = open("abc_obj_list.txt", 'r')
     obj_names = [name.strip() for name in fin.readlines()]
     fin.close()
+    obj_names = sorted(obj_names)
+    
 
-    for name in obj_names_x:
-        if name not in obj_names:
-            os.system("rm -r "+target_dir+name)
+    # for name in obj_names_x:
+    #     if name not in obj_names:
+    #         os.system("rm -r "+target_dir+name)
 
     #augment training set only
     obj_names = obj_names[:int(len(obj_names)*0.8)]
     obj_names_len = len(obj_names)
 
     #prepare list of names
-    even_distribution = [32]
+    even_distribution = [128]
     this_machine_id = 0
     num_of_process = 0
     P_start = 0

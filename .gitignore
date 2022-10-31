@@ -2,6 +2,8 @@
 examples
 samples
 build
+objs
+groundtruth
 __pycache__
 *.png
 *.net
