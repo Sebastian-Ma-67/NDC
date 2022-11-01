@@ -4,6 +4,8 @@ samples
 build
 objs
 groundtruth
+weights
+weights_final
 __pycache__
 *.png
 *.net

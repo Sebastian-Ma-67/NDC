@@ -1,9 +1,8 @@
 import argparse
 import os
+from pickle import TRUE
 import numpy as np
 import time
-
-import torch
 
 
 parser = argparse.ArgumentParser()
@@ -63,6 +62,7 @@ if FLAGS.test_input != "":
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 os.environ["CUDA_VISIBLE_DEVICES"]=FLAGS.gpu
 
+import torch
 import dataset
 import datasetpc
 import model
@@ -611,30 +611,34 @@ elif quick_testing:
         dataset_test = datasetpc.scene_crop_pointcloud(FLAGS.test_input, FLAGS.point_num, FLAGS.grid_size, KNN_num, pooling_radius, FLAGS.block_num_per_dim, FLAGS.block_padding)
         dataloader_test = torch.utils.data.DataLoader(dataset_test, batch_size=1, shuffle=False, num_workers=8)  #batch_size must be 1
 
-        #create large grid
+        #create large grid，确实很大
         full_scene_size = np.copy(dataset_test.full_scene_size)
-        pred_output_bool_numpy = np.zeros([FLAGS.grid_size*full_scene_size[0],FLAGS.grid_size*full_scene_size[1],FLAGS.grid_size*full_scene_size[2],3], np.int32)
-        pred_output_float_numpy = np.zeros([FLAGS.grid_size*full_scene_size[0],FLAGS.grid_size*full_scene_size[1],FLAGS.grid_size*full_scene_size[2],3], np.float32)
-
+        pred_output_bool_numpy = np.zeros([FLAGS.grid_size*full_scene_size[0],
+                                           FLAGS.grid_size*full_scene_size[1],
+                                           FLAGS.grid_size*full_scene_size[2], 3], np.int32)
+        pred_output_float_numpy = np.zeros([FLAGS.grid_size*full_scene_size[0],
+                                            FLAGS.grid_size*full_scene_size[1],
+                                            FLAGS.grid_size*full_scene_size[2], 3], np.float32)
+        
         full_size = full_scene_size[0]*full_scene_size[1]*full_scene_size[2]
         for i, data in enumerate(dataloader_test, 0):
             print(i,"/",full_size)
             pc_KNN_idx_,pc_KNN_xyz_, voxel_xyz_int_,voxel_KNN_idx_,voxel_KNN_xyz_ = data
 
-            if pc_KNN_idx_.size()[1]==1: continue
+            if pc_KNN_idx_.size()[1]==1: continue # 说明这个 block 没有东西，直接过
 
+            pc_KNN_idx      = pc_KNN_idx_[0].to(device)
+            pc_KNN_xyz      = pc_KNN_xyz_[0].to(device)
+            voxel_xyz_int   = voxel_xyz_int_[0].to(device)
+            voxel_KNN_idx   = voxel_KNN_idx_[0].to(device)
+            voxel_KNN_xyz   = voxel_KNN_xyz_[0].to(device)
+            
             #  由 i 得到 idx_x, idx_y, idx_z, 详见 https://www.notion.so/qixuema/f09e3cf7234c41de9da8566133896ca3?v=03843a9d747649a7839c92c91dfabf7f&p=5fef3d80938e4b32b017f53c34a84da0&pm=s
             # 从下往上（沿z轴），从左往右（沿y轴），从后往前（沿x轴），依次对所有的 block 进行重建
-            idx_x = i // (full_scene_size[1]*full_scene_size[2])
-            idx_yz = i % (full_scene_size[1]*full_scene_size[2])
-            idx_y = idx_yz // full_scene_size[2]
-            idx_z = idx_yz % full_scene_size[2]
-
-            pc_KNN_idx = pc_KNN_idx_[0].to(device)
-            pc_KNN_xyz = pc_KNN_xyz_[0].to(device)
-            voxel_xyz_int = voxel_xyz_int_[0].to(device)
-            voxel_KNN_idx = voxel_KNN_idx_[0].to(device)
-            voxel_KNN_xyz = voxel_KNN_xyz_[0].to(device)
+            idx_x   = i // (full_scene_size[1]*full_scene_size[2])
+            idx_yz  = i % (full_scene_size[1]*full_scene_size[2])
+            idx_y   = idx_yz // full_scene_size[2]
+            idx_z   = idx_yz % full_scene_size[2]
 
             with torch.no_grad():
                 if net_bool:
@@ -648,34 +652,86 @@ elif quick_testing:
                 # if not net_float:
                 #     pred_output_float = gt_output_float_[0].to(device)
 
-                pred_output_bool_grid = torch.zeros([FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,3], dtype=torch.int32, device=device)
-                pred_output_float_grid = torch.full([FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,FLAGS.grid_size*2+1,3], 0.5, device=device)
+                # 疑问：这里为什么是 FLAGS.grid_size*2+1？
+                pred_output_bool_grid = torch.zeros([FLAGS.grid_size*2+1,
+                                                     FLAGS.grid_size*2+1,
+                                                     FLAGS.grid_size*2+1,3],
+                                                    dtype=torch.int32, device=device)
+                pred_output_float_grid = torch.full([FLAGS.grid_size*2+1,
+                                                     FLAGS.grid_size*2+1,
+                                                     FLAGS.grid_size*2+1,3], 0.5, device=device)
 
-                pred_output_bool_grid[voxel_xyz_int[:,0],voxel_xyz_int[:,1],voxel_xyz_int[:,2]] = (pred_output_bool>0.3).int()
-                pred_output_float_grid[voxel_xyz_int[:,0],voxel_xyz_int[:,1],voxel_xyz_int[:,2]] = pred_output_float
+
+                pred_output_bool_grid[voxel_xyz_int[:,0],
+                                      voxel_xyz_int[:,1],
+                                      voxel_xyz_int[:,2]] = (pred_output_bool > 0.3).int()
+                
+                pred_output_float_grid[voxel_xyz_int[:,0],
+                                       voxel_xyz_int[:,1],
+                                       voxel_xyz_int[:,2]] = pred_output_float
 
                 if FLAGS.postprocessing:
                     pred_output_bool_grid = modelpc.postprocessing(pred_output_bool_grid)
 
-                pred_output_bool_numpy[ idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
-                                        idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
-                                        idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size] \
+                pred_output_bool_numpy[idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
+                                       idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
+                                       idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size] \
                     = pred_output_bool_grid[FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
                                             FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
                                             FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size].detach().cpu().numpy()
+                
                 pred_output_float_numpy[idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
                                         idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
                                         idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size] \
                     = pred_output_float_grid[FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
                                              FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size,
                                              FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size].detach().cpu().numpy()
-
+                
+                # 用于生成 block 对应的 mesh    
+                if 1:
+                    # 用于存放当前 block 的 bool 和 float
+                    pred_output_block_bool_numpy = np.zeros([FLAGS.grid_size,
+                                                            FLAGS.grid_size,
+                                                            FLAGS.grid_size, 3], np.int32)
+                    pred_output_block_float_numpy = np.zeros([FLAGS.grid_size,
+                                                            FLAGS.grid_size,
+                                                            FLAGS.grid_size, 3], np.float32)
+                    # 用于存放当前 block 的 bool 和 float
+                    pred_output_block_bool_numpy[0 : FLAGS.grid_size,
+                                                0 : FLAGS.grid_size,
+                                                0 : FLAGS.grid_size] \
+                        = pred_output_bool_numpy[idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
+                                                idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
+                                                idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size].copy()
+                    pred_output_block_float_numpy[0 : FLAGS.grid_size,
+                                                0 : FLAGS.grid_size,
+                                                0 : FLAGS.grid_size] \
+                        = pred_output_float_numpy[idx_x * FLAGS.grid_size : (idx_x+1) * FLAGS.grid_size, 
+                                                idx_y * FLAGS.grid_size : (idx_y+1) * FLAGS.grid_size, 
+                                                idx_z * FLAGS.grid_size : (idx_z+1) * FLAGS.grid_size].copy()
+                    
+                    pred_output_block_float_numpy = np.clip(pred_output_block_float_numpy,0,1)
+                    
+                    vertices_block, triangles_block \
+                        = cutils.dual_contouring_block_undc(np.ascontiguousarray(pred_output_block_bool_numpy, np.int32), 
+                                                            np.ascontiguousarray(pred_output_block_float_numpy, np.float32), 
+                                                            np.ascontiguousarray(full_scene_size, np.int32), i)
+                        
+                    utils.write_obj_triangle(FLAGS.sample_dir+"/quicktest_"+FLAGS.method+"_"+FLAGS.input_type+"_"+str(i)+".obj", vertices_block, triangles_block)
+                    
 
     pred_output_float_numpy = np.clip(pred_output_float_numpy,0,1)
+    reorientation = 0
+    if reorientation:
+        print("mesh reorientation")
+        
+        
     if FLAGS.method == "undc":
         #vertices, triangles = utils.dual_contouring_undc_test(pred_output_bool_numpy, pred_output_float_numpy)
         vertices, triangles = cutils.dual_contouring_undc(np.ascontiguousarray(pred_output_bool_numpy, np.int32), np.ascontiguousarray(pred_output_float_numpy, np.float32))
+        
     else:
         #vertices, triangles = utils.dual_contouring_ndc_test(pred_output_bool_numpy, pred_output_float_numpy)
         vertices, triangles = cutils.dual_contouring_ndc(np.ascontiguousarray(pred_output_bool_numpy, np.int32), np.ascontiguousarray(pred_output_float_numpy, np.float32))
+    
     utils.write_obj_triangle(FLAGS.sample_dir+"/quicktest_"+FLAGS.method+"_"+FLAGS.input_type+".obj", vertices, triangles)
