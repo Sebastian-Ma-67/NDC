@@ -119,9 +119,9 @@ class ABC_pointcloud_hdf5(torch.utils.data.Dataset):
                 #grid   ideal?  range
                 #64     16384    8192-32768
                 np.random.shuffle(gt_input_)
-                rand_int_s = int(8192*(shape_scale/10.0)**2)
-                rand_int_t = int(32768*(shape_scale/10.0)**2)
-                count = np.random.randint(rand_int_s,rand_int_t)
+                rand_int_low = int(8192*(shape_scale/10.0)**2) # shape_scale = one of [10,9,8,7,6,5]
+                rand_int_high = int(32768*(shape_scale/10.0)**2)
+                count = np.random.randint(rand_int_low, rand_int_high)
                 gt_input_ = gt_input_[:count]
         else:
             gt_input_ = gt_input_[:self.input_point_num]

@@ -35,7 +35,7 @@
                 "--checkpoint_dir",
                 "weights_final",
                 "--test_input",
-                "examples/L7_art-60M.ply",                
+                "examples/map_pc.ply",                
                 "--input_type",
                 "noisypc",
                 "--method",

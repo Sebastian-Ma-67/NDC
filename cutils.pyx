@@ -496,9 +496,9 @@ def dual_contouring_block_undc(int[:,:,:,::1] int_grid, float[:,:,:,::1] float_g
                     all_vertices_len += 1
 
 
-    #all triangles
-
-    #i-direction，注意，这里是从 0,1,1 开始遍历的
+    # all triangles
+    # 这里分成三大步进行重建，我的理解是，在每一个triangle生成的时候，是需要考虑其邻近的 voxel 的，如果每个 voxel 同时进行三个方向的重建，可能会比较耗时，不如分成三个方向进行重建
+    # i-direction，注意，这里是从 0,1,1 开始遍历的
     for i in range(0,dimx):
         for j in range(1,dimy):
             for k in range(1,dimz):

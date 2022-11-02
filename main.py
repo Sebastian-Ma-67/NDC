@@ -269,9 +269,9 @@ if is_training:
             #save weights
             print('saving net...')
             if net_bool:
-                torch.save(network_bool.state_dict(), FLAGS.checkpoint_dir+"/weights_"+FLAGS.method+"_"+FLAGS.input_type+"_bool.pth")
+                torch.save(network_bool.state_dict(), FLAGS.checkpoint_dir+"/weights_"+FLAGS.method+"_"+FLAGS.input_type+"_bool_"+str(epoch)+".pth")
             if net_float:
-                torch.save(network_float.state_dict(), FLAGS.checkpoint_dir+"/weights_"+FLAGS.method+"_"+FLAGS.input_type+"_float.pth")
+                torch.save(network_float.state_dict(), FLAGS.checkpoint_dir+"/weights_"+FLAGS.method+"_"+FLAGS.input_type+"_float_"+str(epoch)+".pth")
             print('saving net... complete')
 
             #test
@@ -664,7 +664,7 @@ elif quick_testing:
 
                 pred_output_bool_grid[voxel_xyz_int[:,0],
                                       voxel_xyz_int[:,1],
-                                      voxel_xyz_int[:,2]] = (pred_output_bool > 0.3).int()
+                                      voxel_xyz_int[:,2]] = (pred_output_bool > 0.3).int() # 这里可以修改阈值大小，默认是 0.3
                 
                 pred_output_float_grid[voxel_xyz_int[:,0],
                                        voxel_xyz_int[:,1],
@@ -688,7 +688,7 @@ elif quick_testing:
                                              FLAGS.block_padding : FLAGS.block_padding + FLAGS.grid_size].detach().cpu().numpy()
                 
                 # 用于生成 block 对应的 mesh    
-                if 1:
+                if 0:
                     # 用于存放当前 block 的 bool 和 float
                     pred_output_block_bool_numpy = np.zeros([FLAGS.grid_size,
                                                             FLAGS.grid_size,
@@ -721,11 +721,12 @@ elif quick_testing:
                     
 
     pred_output_float_numpy = np.clip(pred_output_float_numpy,0,1)
+    
+    # TODO 
     reorientation = 0
     if reorientation:
         print("mesh reorientation")
-        
-        
+                
     if FLAGS.method == "undc":
         #vertices, triangles = utils.dual_contouring_undc_test(pred_output_bool_numpy, pred_output_float_numpy)
         vertices, triangles = cutils.dual_contouring_undc(np.ascontiguousarray(pred_output_bool_numpy, np.int32), np.ascontiguousarray(pred_output_float_numpy, np.float32))
