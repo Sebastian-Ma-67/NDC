@@ -1,0 +1,4 @@
+Script started on 2022-11-14 09:43:20+08:00 [TERM="screen" TTY="/dev/pts/3" COLUMNS="209" LINES="57"]
+(base) root@xueqi-155:~/studio/project/ndc/ndc# exit
+
+Script done on 2022-11-14 09:43:57+08:00 [COMMAND_EXIT_CODE="0"]
